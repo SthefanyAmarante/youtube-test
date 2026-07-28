@@ -15,6 +15,7 @@
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
     let ytPlayer;
+    let ready = false;
 
     function onYouTubeIframeAPIReady() {
       const params = new URLSearchParams(location.search);
@@ -33,30 +34,30 @@
         },
         events: {
           onReady: () => {
-            console.log('[player.html] YouTube player pronto');
-            window.parent.postMessage({ type: 'youtubeReady' }, '*');
+            ready = true;
+            console.log('[player.html] Player pronto');
+            // Tenta notificar o parent (pode ser bloqueado)
+            try {
+              window.parent.postMessage({ type: 'youtubeReady' }, '*');
+            } catch(e) {
+              console.warn('postMessage bloqueado?', e);
+            }
           },
-          onError: (e) => console.error('[player.html] Erro no YouTube:', e.data)
+          onError: (e) => console.error('[player.html] Erro:', e.data)
         }
       });
     }
 
-    window.addEventListener('message', (event) => {
-      if (!ytPlayer) return;
-      const { command, value } = event.data;
-
+    // Função para executar comando quando pronto
+    function executeCommand(cmd) {
+      if (!ready || !ytPlayer) {
+        console.warn('[player.html] Player ainda não pronto, ignorando comando', cmd.command);
+        return false;
+      }
+      const { command, value } = cmd;
       switch (command) {
-        case 'pause':
-          ytPlayer.pauseVideo();
-          break;
-        case 'play':
-          ytPlayer.playVideo();
-          break;
         case 'togglePlayPause':
           ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
-          break;
-        case 'seek':
-          ytPlayer.seekTo(value, true);
           break;
         case 'forward':
           ytPlayer.seekTo(Math.min(ytPlayer.getCurrentTime() + (value || 10), ytPlayer.getDuration()), true);
@@ -64,14 +65,21 @@
         case 'rewind':
           ytPlayer.seekTo(Math.max(ytPlayer.getCurrentTime() - (value || 10), 0), true);
           break;
-        case 'mute':
-          ytPlayer.mute();
-          break;
-        case 'unmute':
-          ytPlayer.unMute();
-          break;
+        default: break;
+      }
+      return true;
+    }
+
+    // Escuta comandos do parent
+    window.addEventListener('message', (event) => {
+      // Aceitamos mensagens de qualquer origem (file:// inclusive)
+      if (event.data && event.data.command) {
+        executeCommand(event.data);
       }
     });
+
+    // Notifica pronto via postMessage a cada 300ms até obter um ACK (opcional)
+    // Mas vamos manter simples e confiar que o parent enviará comandos após algum tempo.
   </script>
 </body>
 </html>
