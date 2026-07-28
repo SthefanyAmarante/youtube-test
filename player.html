@@ -11,7 +11,6 @@
 </head>
 <body>
   <div id="player"></div>
-
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
     let ytPlayer;
@@ -36,50 +35,47 @@
           onReady: () => {
             ready = true;
             console.log('[player.html] Player pronto');
-            // Tenta notificar o parent (pode ser bloqueado)
             try {
               window.parent.postMessage({ type: 'youtubeReady' }, '*');
-            } catch(e) {
-              console.warn('postMessage bloqueado?', e);
-            }
+            } catch(e) {}
           },
           onError: (e) => console.error('[player.html] Erro:', e.data)
         }
       });
     }
 
-    // Função para executar comando quando pronto
-    function executeCommand(cmd) {
+    // Escuta comandos e envia resposta de confirmação
+    window.addEventListener('message', (event) => {
+      console.log('[player.html] Mensagem recebida:', event.data);
+      if (!event.data || !event.data.command) return;
+
+      let success = false;
+      const { command, value } = event.data;
+
       if (!ready || !ytPlayer) {
-        console.warn('[player.html] Player ainda não pronto, ignorando comando', cmd.command);
-        return false;
+        // player ainda não pronto, não faz nada mas responde
+        window.parent.postMessage({ type: 'commandResult', success: false, error: 'not_ready' }, '*');
+        return;
       }
-      const { command, value } = cmd;
+
       switch (command) {
         case 'togglePlayPause':
-          ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+          if (ytPlayer.getPlayerState() === 1) ytPlayer.pauseVideo();
+          else ytPlayer.playVideo();
+          success = true;
           break;
         case 'forward':
           ytPlayer.seekTo(Math.min(ytPlayer.getCurrentTime() + (value || 10), ytPlayer.getDuration()), true);
+          success = true;
           break;
         case 'rewind':
           ytPlayer.seekTo(Math.max(ytPlayer.getCurrentTime() - (value || 10), 0), true);
+          success = true;
           break;
-        default: break;
       }
-      return true;
-    }
 
-    // Escuta comandos do parent
-    window.addEventListener('message', (event) => {
-      // Aceitamos mensagens de qualquer origem (file:// inclusive)
-      if (event.data && event.data.command) {
-        executeCommand(event.data);
-      }
+      window.parent.postMessage({ type: 'commandResult', success, command }, '*');
     });
-
-    // Notifica pronto via postMessage a cada 300ms até obter um ACK (opcional)
-    // Mas vamos manter simples e confiar que o parent enviará comandos após algum tempo.
   </script>
 </body>
 </html>
