@@ -5,30 +5,73 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Player YouTube</title>
   <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background: #000;
-      overflow: hidden;
-    }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
+    body, html { margin:0; padding:0; width:100%; height:100%; background:#000; overflow:hidden; }
+    #player { width:100%; height:100%; }
   </style>
 </head>
 <body>
+  <div id="player"></div>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
   <script>
-    const params = new URLSearchParams(location.search);
-    const videoId = params.get('id') || 'jNQXAC9IVRw';
-    const iframe = document.createElement('iframe');
-    iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=1&modestbranding=1&rel=0&playsinline=1`;
-    iframe.allow = 'autoplay; encrypted-media';
-    iframe.allowFullscreen = true;
-    document.body.appendChild(iframe);
+    let ytPlayer;
+
+    function onYouTubeIframeAPIReady() {
+      const params = new URLSearchParams(location.search);
+      const videoId = params.get('id') || 'jNQXAC9IVRw';
+
+      ytPlayer = new YT.Player('player', {
+        videoId: videoId,
+        playerVars: {
+          autoplay: 1,
+          mute: 1,
+          controls: 1,
+          modestbranding: 1,
+          rel: 0,
+          enablejsapi: 1,
+          origin: 'https://www.youtube.com'
+        },
+        events: {
+          onReady: () => {
+            console.log('[player.html] YouTube player pronto');
+            window.parent.postMessage({ type: 'youtubeReady' }, '*');
+          },
+          onError: (e) => console.error('[player.html] Erro no YouTube:', e.data)
+        }
+      });
+    }
+
+    window.addEventListener('message', (event) => {
+      if (!ytPlayer) return;
+      const { command, value } = event.data;
+
+      switch (command) {
+        case 'pause':
+          ytPlayer.pauseVideo();
+          break;
+        case 'play':
+          ytPlayer.playVideo();
+          break;
+        case 'togglePlayPause':
+          ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+          break;
+        case 'seek':
+          ytPlayer.seekTo(value, true);
+          break;
+        case 'forward':
+          ytPlayer.seekTo(Math.min(ytPlayer.getCurrentTime() + (value || 10), ytPlayer.getDuration()), true);
+          break;
+        case 'rewind':
+          ytPlayer.seekTo(Math.max(ytPlayer.getCurrentTime() - (value || 10), 0), true);
+          break;
+        case 'mute':
+          ytPlayer.mute();
+          break;
+        case 'unmute':
+          ytPlayer.unMute();
+          break;
+      }
+    });
   </script>
 </body>
 </html>
