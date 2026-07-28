@@ -5,23 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Player YouTube</title>
   <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background: #000;
-      overflow: hidden;
-    }
-    #player {
-      width: 100%;
-      height: 100%;
-    }
+    body, html { margin:0; padding:0; width:100%; height:100%; background:#000; overflow:hidden; }
+    #player { width:100%; height:100%; }
   </style>
 </head>
 <body>
   <div id="player"></div>
-
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
     let ytPlayer;
@@ -36,47 +25,47 @@
         playerVars: {
           autoplay: 1,
           mute: 1,
-          controls: 0,           // controles nativos permanecem
-          modestbranding: 1,     // reduz logo
+          controls: 1,           // manter controles nativos (exigido pelos termos)
           rel: 0,
-          showinfo: 0,           // esconde título e informações
-          iv_load_policy: 3,     // esconde anotações
-          cc_load_policy: 0,     // não força legendas
-          fs: 1,                 // tela cheia
-          disablekb: 1,          // desativa atalhos de teclado do YouTube
+          showinfo: 0,           // efeito mínimo, mas mantido
+          iv_load_policy: 3,
+          cc_load_policy: 0,
+          fs: 1,
+          disablekb: 1,          // evitamos conflito com nosso controle
           enablejsapi: 1,
           origin: 'https://www.youtube.com'
         },
         events: {
           onReady: () => {
             ready = true;
-            console.log('[player.html] Player pronto');
             try {
               window.parent.postMessage({ type: 'youtubeReady' }, '*');
             } catch(e) {}
+          },
+          onStateChange: (event) => {
+            // Informa o parent sobre mudanças de estado (playing, paused)
+            if (event.data === 1) { // playing
+              window.parent.postMessage({ type: 'playerState', state: 'playing' }, '*');
+            } else if (event.data === 2) { // paused
+              window.parent.postMessage({ type: 'playerState', state: 'paused' }, '*');
+            }
           },
           onError: (e) => console.error('[player.html] Erro:', e.data)
         }
       });
     }
 
-    // Escuta comandos do parent
     window.addEventListener('message', (event) => {
-      console.log('[player.html] Mensagem recebida:', event.data);
       if (!event.data || !event.data.command) return;
-
       if (!ready || !ytPlayer) {
         window.parent.postMessage({ type: 'commandResult', success: false, error: 'not_ready' }, '*');
         return;
       }
-
       const { command, value } = event.data;
       let success = false;
-
       switch (command) {
         case 'togglePlayPause':
-          if (ytPlayer.getPlayerState() === 1) ytPlayer.pauseVideo();
-          else ytPlayer.playVideo();
+          ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
           success = true;
           break;
         case 'forward':
@@ -87,10 +76,7 @@
           ytPlayer.seekTo(Math.max(ytPlayer.getCurrentTime() - (value || 10), 0), true);
           success = true;
           break;
-        default:
-          break;
       }
-
       window.parent.postMessage({ type: 'commandResult', success, command }, '*');
     });
   </script>
