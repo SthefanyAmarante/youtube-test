@@ -5,12 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Player YouTube</title>
   <style>
-    body, html { margin:0; padding:0; width:100%; height:100%; background:#000; overflow:hidden; }
-    #player { width:100%; height:100%; }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+    #player {
+      width: 100%;
+      height: 100%;
+    }
   </style>
 </head>
 <body>
   <div id="player"></div>
+
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
     let ytPlayer;
@@ -25,9 +36,14 @@
         playerVars: {
           autoplay: 1,
           mute: 1,
-          controls: 1,
-          modestbranding: 1,
+          controls: 1,           // controles nativos permanecem
+          modestbranding: 1,     // reduz logo
           rel: 0,
+          showinfo: 0,           // esconde título e informações
+          iv_load_policy: 3,     // esconde anotações
+          cc_load_policy: 0,     // não força legendas
+          fs: 1,                 // tela cheia
+          disablekb: 1,          // desativa atalhos de teclado do YouTube
           enablejsapi: 1,
           origin: 'https://www.youtube.com'
         },
@@ -44,19 +60,18 @@
       });
     }
 
-    // Escuta comandos e envia resposta de confirmação
+    // Escuta comandos do parent
     window.addEventListener('message', (event) => {
       console.log('[player.html] Mensagem recebida:', event.data);
       if (!event.data || !event.data.command) return;
 
-      let success = false;
-      const { command, value } = event.data;
-
       if (!ready || !ytPlayer) {
-        // player ainda não pronto, não faz nada mas responde
         window.parent.postMessage({ type: 'commandResult', success: false, error: 'not_ready' }, '*');
         return;
       }
+
+      const { command, value } = event.data;
+      let success = false;
 
       switch (command) {
         case 'togglePlayPause':
@@ -71,6 +86,8 @@
         case 'rewind':
           ytPlayer.seekTo(Math.max(ytPlayer.getCurrentTime() - (value || 10), 0), true);
           success = true;
+          break;
+        default:
           break;
       }
 
